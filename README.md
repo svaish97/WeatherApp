@@ -1,0 +1,1 @@
+This app uses your current location to fetch weather details.Also you can use search bar to search the temperature of a particular city.
