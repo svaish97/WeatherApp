@@ -1,6 +1,7 @@
 package com.example.saurabh.weatherapp
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Color
@@ -25,17 +26,23 @@ import com.google.android.gms.location.places.ui.PlaceSelectionListener
 import com.squareup.picasso.Picasso
 
 import kotlinx.android.synthetic.main.activity_main.*
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.nio.charset.Charset
 import java.util.*
+import kotlin.collections.ArrayList
+data class jsonValues(val temp:String,val city:String)
 
 class MainActivity : AppCompatActivity() {
 
  var cityName=""
   var lat:Double=0.0
   var longi:Double=0.0
+  var myCustomArray=ArrayList<jsonValues>()
+    lateinit var adapter: CustomAdapter
    // var locationNotObtained=true
     lateinit var locationManager: LocationManager
     lateinit var listener: LocationListener
@@ -49,13 +56,11 @@ class MainActivity : AppCompatActivity() {
 
         autocompleteFragment.setOnPlaceSelectedListener(object : PlaceSelectionListener {
             override fun onPlaceSelected(place: Place) {
-                // TODO: Get info about the selected place.
                 Log.i("Frag", "Place: " + place.getName().toString())
-                cityName = place.getName().toString()
+                cityName = place.name.toString()
             }
 
             override fun onError(status: Status) {
-                // TODO: Handle the error.
                 Log.i("Frag", "An error occurred: $status")
             }
         })
@@ -63,7 +68,7 @@ class MainActivity : AppCompatActivity() {
         locationManager=getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
 
-        listener =object :LocationListener{
+        listener =object:LocationListener{
             override fun onLocationChanged(location: Location?) {
                // if (locationNotObtained) {
                     location?.run {
@@ -96,50 +101,79 @@ class MainActivity : AppCompatActivity() {
 
 
 
-    btnCurrentLocation.setOnClickListener(
-            {
-                if(ContextCompat.checkSelfPermission(this,Manifest.permission.ACCESS_FINE_LOCATION) !=PackageManager.PERMISSION_GRANTED
-                        && ContextCompat.checkSelfPermission(this,Manifest.permission.ACCESS_COARSE_LOCATION) !=PackageManager.PERMISSION_GRANTED
-                ){
-                    if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.M)
-                    {
-                        ActivityCompat.requestPermissions(this, arrayOf(
-                                Manifest.permission.ACCESS_FINE_LOCATION,
-                                Manifest.permission.ACCESS_COARSE_LOCATION
-                        ),123)
-                    }
-                }
-
-                else
-                {
-                    tvResult.visibility=View.GONE
-                   tvCity.visibility=View.GONE
-                    weatherImage.visibility=View.GONE
-
-                    progressBar.visibility=View.VISIBLE
-                   locationManager.requestLocationUpdates("gps",1000,50F,listener)
-
-
-                }
+    btnCurrentLocation.setOnClickListener {
+        if(ContextCompat.checkSelfPermission(this,Manifest.permission.ACCESS_FINE_LOCATION) !=PackageManager.PERMISSION_GRANTED
+                && ContextCompat.checkSelfPermission(this,Manifest.permission.ACCESS_COARSE_LOCATION) !=PackageManager.PERMISSION_GRANTED
+        ){
+            if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.M) {
+                ActivityCompat.requestPermissions(this, arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                ),123)
             }
-    )
-
-
-
-
-        button.setOnClickListener({
+        } else {
             tvResult.visibility=View.GONE
-           tvCity.visibility=View.GONE
+            tvCity.visibility=View.GONE
+            weatherImage.visibility=View.GONE
+
+            progressBar.visibility=View.VISIBLE
+            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER,1000,50F,listener)
+
+
+        }
+    }
+
+
+
+
+        button.setOnClickListener {
+            tvResult.visibility=View.GONE
+            tvCity.visibility=View.GONE
             weatherImage.visibility=View.GONE
             progressBar.visibility=View.VISIBLE
 
             val weather=WeatherTask()
             weather.execute("https://openweathermap.org/data/2.5/weather?q="+cityName+"&appid=b6907d289e10d714a6e88b30761fae22")
 
-//            val mgr= getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-//            mgr.hideSoftInputFromWindow(cityName,0)
+            if(cityName.equals("Noida")) {
 
-        })
+                val inputStream = assets.open("myFile.json")
+                val size = inputStream.available()
+                val buffer = ByteArray(size)
+                inputStream.read(buffer)
+                inputStream.close()
+
+                val json = String(buffer, Charset.forName("UTF-8"))
+                val jsonArray = JSONArray(json)
+
+                Log.d("json", jsonArray.toString())
+                myCustomArray.clear()
+                for (i in 0 until jsonArray.length()) {
+                    val jsonObject = jsonArray.getJSONObject(i)
+                    myCustomArray.add(jsonValues(jsonObject.getString("temp"), jsonObject.getString("city")))
+                }
+            }
+            else if(cityName.equals("New Delhi")){
+                val inputStream = assets.open("newDelhi.json")
+                val size = inputStream.available()
+                val buffer = ByteArray(size)
+                inputStream.read(buffer)
+                inputStream.close()
+
+                val json = String(buffer, Charset.forName("UTF-8"))
+                val jsonArray = JSONArray(json)
+
+                Log.d("json", jsonArray.toString())
+                myCustomArray.clear()
+                for (i in 0 until jsonArray.length()) {
+                    val jsonObject = jsonArray.getJSONObject(i)
+                    myCustomArray.add(jsonValues(jsonObject.getString("temp"), jsonObject.getString("city")))
+                }
+            }
+            adapter=CustomAdapter(myCustomArray)
+            rview.adapter=adapter
+
+        }
 
 
     }
@@ -184,6 +218,7 @@ class MainActivity : AppCompatActivity() {
             """.trimIndent()
         }
 
+        @SuppressLint("SetTextI18n")
         override fun onPostExecute(result: String?) {
             super.onPostExecute(result)
             try {
